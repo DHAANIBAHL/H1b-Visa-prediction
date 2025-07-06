@@ -1,0 +1,339 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import warnings
+warnings.filterwarnings("ignore")
+%matplotlib inline
+
+df = pd.read_csv(r"Visadataset.csv")
+df.head()
+df.shape
+df.describe()
+df.info()
+
+# define numerical & categorical columns
+numeric_features = [feature for feature in df.columns if df[feature].dtype != 'O']
+categorical_features = [feature for feature in df.columns if df[feature].dtype == 'O']
+
+# print columns
+print('We have {} numerical features : {}'.format(len(numeric_features), numeric_features))
+print('\nWe have {} categorical features : {}'.format(len(categorical_features), categorical_features))
+
+# proportion of count data on categorical columns
+for col in categorical_features:
+    print(df[col].value_counts(normalize=True) * 100)
+    print('---------------------------')
+
+
+plt.figure(figsize=(15, 10))
+plt.suptitle('Univariate Analysis of Numerical Features', fontsize=20, fontweight='bold', alpha=0.8, y=1.)
+
+for i in range(0, len(numeric_features)):
+    plt.subplot(2, 2, i+1)
+    sns.kdeplot(x=df[numeric_features[i]], color='blue')
+    plt.xlabel(numeric_features[i])
+    plt.tight_layout()
+    
+# save plot
+# plt.savefig('./images/Univariate_Num.png')
+
+# categorical columns
+categorical_features.remove('case_id')
+plt.figure(figsize=(15, 8))
+plt.suptitle('Univariate Analysis of Categorical Features', fontsize=20, fontweight='bold', alpha=0.8, y=1.)
+
+for i in range(0, len(categorical_features)):
+    plt.subplot(3, 3, i+1)
+    sns.countplot(x=df[categorical_features[i]])
+    plt.xlabel(categorical_features[i])
+    plt.tight_layout()
+    
+# save plot
+# plt.savefig('./images/Univariate_Cat.png')
+
+numeric_feas = ["no_of_employees","yr_of_estab","prevailing_wage"]
+
+df1=df.copy()
+plt.figure(figsize = (15,10))
+sns.heatmap(df1[numeric_feas].corr(), cmap="Blues", annot=True)
+plt.show()
+
+from scipy.stats import chi2_contingency
+chi2_test = []
+for feature in categorical_features:
+    if chi2_contingency(pd.crosstab(df['case_status'], df[feature]))[1] < 0.05:
+        chi2_test.append('Reject Null Hypothesis')
+    else:
+        chi2_test.append('Fail to Reject Null Hypothesis')
+result = pd.DataFrame(data=[categorical_features, chi2_test]).T
+result.columns = ['Column', 'Hypothesis Result']
+result
+
+df.isnull().sum()
+continues_features=[feature for feature in numeric_features if len(df[feature].unique())>=10]
+print('Num of continues features :',continues_features)
+df["case_status"].unique()
+array(['Denied', 'Certified'], dtype=object)
+
+
+clr1 = ['#1E90FF', '#DC143C']
+fig, ax = plt.subplots(3, 2, figsize=(10,12))
+fig.suptitle('Distribution of Numerical Features By Case Status', color='#3C3744',
+             fontsize=20, fontweight='bold', ha='center')
+for i, col in enumerate(continues_features):   
+    sns.boxplot(data=df, x='case_status', y=col,  palette=clr1, ax=ax[i,0])
+    ax[i,0].set_title(f'Boxplot of {col}', fontsize=12)
+    sns.histplot(data=df, x=col, hue='case_status', bins=20, kde=True, 
+                 multiple='stack', palette=clr1, ax=ax[i,1])
+    ax[i,1].set_title(f'Histogram of {col}', fontsize=14)
+fig.tight_layout()
+fig.subplots_adjust(top=0.90)
+# plt.savefig('images/multivariate_num.png')
+
+from scipy.stats import mannwhitneyu
+
+for feat in continues_features:
+    group1 = df[df['case_status'] == 'Denied'][feat]
+    group2 = df[df['case_status'] == 'Certified'][feat]
+
+    # Perform Mann-Whitney U test
+    statistic, p_value = mannwhitneyu(group1, group2)
+
+    # Compare p-value with significance level (e.g., 0.05)
+    if p_value < 0.05:
+        print(f"Reject null hypothesis for {feat}: p-value = {p_value}")
+    else:
+        print(f"Could not reject null hypothesis for {feat}: p-value: {p_value}")
+
+percentage = df.case_status.value_counts(normalize=True)*100
+labels = ["Certified","Denied"]
+
+# Plot PieChart with Ploty library
+fig, ax = plt.subplots(figsize =(15, 8))
+explode = (0, 0.1)
+colors = ['#1188ff','#e63a2a']
+ax.pie(percentage, labels = labels, startangle = 90,
+       autopct='%1.2f%%',explode=explode, shadow=True, colors=colors)
+plt.show()
+
+#group data by continent and their count of case_status
+df.groupby('continent')['case_status'].value_counts(normalize=True).to_frame()*100
+
+plt.subplots(figsize=(14,7))
+sns.countplot(x="continent",hue="case_status", data=df, ec = "black",palette="Accent")
+plt.title("Continent vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.xlabel("Continents", weight="bold", fontsize=16)
+plt.legend(title="Visa Status", fancybox=True)
+plt.show()
+
+df2 = df.copy()
+
+plt.figure(figsize=[14,7])
+
+(100*df2[df2["case_status"].isin(['Certified'])]['continent'].value_counts()/df2['continent'].value_counts()).plot(
+    kind='bar',stacked=True , colormap='Accent')
+plt.title("Percentage of Certified" , fontsize = 15, fontweight ='bold'  )
+order1 = (100*df2[df2["case_status"].isin(['Certified'])]['continent'].value_counts()/df2['continent'].value_counts())
+for n in range(order1.shape[0]):
+    count = order1[n]
+    strt='{:0.1f}%'.format(count)
+    plt.text(n,count+0.1,strt,ha='center')
+
+plt.xlabel('Continent' , fontweight ='bold')
+plt.xticks(rotation=0)
+plt.show()
+
+#group data by Education and their count of case_status
+df.groupby('education_of_employee')['case_status'].value_counts(normalize=True).to_frame()*100
+
+plt.subplots(figsize=(14,7))
+sns.countplot(x="education_of_employee",hue="case_status", data=df, ec = "black",palette="Accent")
+plt.title("Education of Employee vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.xlabel("Education of Employee", weight="bold", fontsize=16)
+plt.legend(title="Visa Status", fancybox=True)
+plt.show()
+
+plt.figure(figsize=[14,7])
+
+(100*df2[df2["case_status"].isin(['Certified'])]['education_of_employee'].value_counts()/df2['education_of_employee'].value_counts()).plot(
+    kind='bar',stacked=True , colormap='Accent')
+plt.title("Percentage of Certified vs Education of the employee" , fontsize = 15, fontweight ='bold'  )
+order1 = (100*df2[df2["case_status"].isin(['Certified'])]['education_of_employee'].value_counts()/df2['education_of_employee'].value_counts())
+for n in range(order1.shape[0]):
+    count = order1[n]
+    strt='{:0.1f}%'.format(count)
+    plt.text(n,count+0.1,strt,ha='center')
+
+plt.xlabel('education_of_employee' , fontweight ='bold')
+plt.xticks(rotation=0)
+plt.show()
+
+#group data by has_job_experience and count case_status
+df.groupby('has_job_experience')['case_status'].value_counts(normalize=True).to_frame()*100
+
+plt.subplots(figsize=(13,7))
+sns.countplot(x="has_job_experience",hue="case_status", data=df, ec= "black",palette="Accent")
+plt.title("Previous Work Experience of Employee vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.xlabel("Work Experience of Employee", weight="bold", fontsize=16)
+plt.legend(title="Visa Status", fancybox=True)
+plt.show()
+
+plt.figure(figsize=[14,7])
+
+(100*df2[df2["case_status"].isin(['Certified'])]['has_job_experience'].value_counts()/df2['has_job_experience'].value_counts()).plot(
+    kind='bar',stacked=True , colormap='Accent')
+plt.title("Percentage of Certified vs Job Experience" , fontsize = 15, fontweight ='bold'  )
+order1 = (100*df2[df2["case_status"].isin(['Certified'])]['has_job_experience'].value_counts()/df2['has_job_experience'].value_counts())
+for n in range(order1.shape[0]):
+    count = order1[n]
+    strt='{:0.1f}%'.format(count)
+    plt.text(n,count+0.1,strt,ha='center')
+
+plt.xlabel('has_job_experience' , fontweight ='bold')
+plt.xticks(rotation=0)
+plt.show()
+
+plt.subplots(figsize=(13,7))
+sns.countplot(x="requires_job_training",hue="case_status", data=df, ec= "black",palette="Accent")
+plt.title("Requires job training for Employee vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.xlabel("Requires Job Training for Employee", weight="bold", fontsize=16)
+plt.legend(title="Visa Status", fancybox=True)
+plt.show()
+
+plt.figure(figsize=[14,7])
+
+(100*df2[df2["case_status"].isin(['Certified'])]['requires_job_training'].value_counts()/df2['requires_job_training'].value_counts()).plot(
+    kind='bar',stacked=True , colormap='Accent')
+plt.title("Percentage of Certified vs Required training" , fontsize = 15, fontweight ='bold'  )
+order1 = (100*df2[df2["case_status"].isin(['Certified'])]['requires_job_training'].value_counts()/df2['requires_job_training'].value_counts())
+for n in range(order1.shape[0]):
+    count = order1[n]
+    strt='{:0.1f}%'.format(count)
+    plt.text(n,count+0.1,strt,ha='center')
+
+plt.xlabel('requires_job_training' , fontweight ='bold')
+plt.xticks(rotation=0)
+plt.show()
+
+plt.subplots(figsize=(10,13))
+sns.violinplot(x="case_status",y='no_of_employees', data=df, palette="Accent")
+plt.title("Number of employees vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.xlabel("Requires Job Training for Employee", weight="bold", fontsize=16)
+plt.ylim()
+plt.show()
+
+#group data by unit_of_wage and count the case_status
+df.groupby('unit_of_wage')['case_status'].value_counts(normalize=True)
+
+plt.subplots(figsize=(14,7))
+sns.countplot(x="unit_of_wage",hue="case_status", data=df,ec='k', palette='Accent')
+plt.title("No of Employees in company vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.xlabel("No of Employees", weight="bold", fontsize=16)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.show()
+
+plt.figure(figsize=[14,7])
+
+(100*df2[df2["case_status"].isin(['Certified'])]['unit_of_wage'].value_counts()/df2['unit_of_wage'].value_counts()).plot(
+    kind='bar',stacked=True , colormap='Accent')
+plt.title("Percentage of Certified vs contract time" , fontsize = 15, fontweight ='bold'  )
+order1 = (100*df2[df2["case_status"].isin(['Certified'])]['unit_of_wage'].value_counts()/df2['unit_of_wage'].value_counts())
+for n in range(order1.shape[0]):
+    count = order1[n]
+    strt='{:0.1f}%'.format(count)
+    plt.text(n,count+0.1,strt,ha='center')
+
+plt.xlabel('unit_of_wage' , fontweight ='bold')
+plt.xticks(rotation=0)
+plt.show()
+
+Report
+
+    For employees who applied for hourly pay 65% of them were denied.
+    Yearly unit wage application were accepted for 69% and denied for 31% of the time.
+    There is a higher chance of yearly contract than other and immediately followed by week and month.
+
+plt.subplots(figsize=(14,7))
+sns.countplot(x="region_of_employment",hue="case_status", data=df,ec='k')
+plt.title("Region of Employment vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.xlabel("Region", weight="bold", fontsize=16)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.legend(title="Visa Status", fancybox=True)
+plt.show()
+
+plt.figure(figsize=[14,7])
+
+(100*df2[df2["case_status"].isin(['Certified'])]['region_of_employment'].value_counts()/df2['region_of_employment'].value_counts()).plot(
+    kind='bar',stacked=True , colormap='Accent')
+plt.title("Percentage of Certified vs employment region" , fontsize = 15, fontweight ='bold'  )
+order1 = (100*df2[df2["case_status"].isin(['Certified'])]['region_of_employment'].value_counts()/df2['region_of_employment'].value_counts())
+for n in range(order1.shape[0]):
+    count = order1[n]
+    strt='{:0.1f}%'.format(count)
+    plt.text(n,count+0.1,strt,ha='center')
+
+plt.xlabel('region_of_employment' , fontweight ='bold')
+plt.xticks(rotation=0)
+plt.show()
+
+df.groupby('prevailing_wage').case_status.value_counts()
+
+plt.subplots(figsize=(14,7))
+sns.histplot(x="prevailing_wage",hue="case_status", data=df, kde=True)
+plt.title("Prevailing wage vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.xlabel("Wage", weight="bold", fontsize=16)
+plt.ylabel("Count", weight="bold", fontsize=12)
+plt.show()
+
+print('Average Prevailing wage based on Employee education')
+df.groupby('education_of_employee')['prevailing_wage'].mean().to_frame().sort_values(by='prevailing_wage',ascending=False)
+
+Average Prevailing wage based on Employee education
+
+plt.subplots(figsize=(14,7))
+sns.boxplot(y="education_of_employee",x = "prevailing_wage", data=df,palette='bright')
+plt.title("education_of_employee vs Prevailing Wage", weight="bold",fontsize=20, pad=20)
+plt.xlabel("Prevailing Wage", weight="bold", fontsize=16)
+plt.ylabel("Education", weight="bold", fontsize=12)
+plt.show()
+
+print('Median Prevailing wage based on Job experience')
+df.groupby('has_job_experience')['prevailing_wage'].median().to_frame().sort_values(by='prevailing_wage',ascending=False)
+
+print('Average Prevailing wage based on Continent')
+df.groupby('continent')['prevailing_wage'].mean().to_frame().sort_values(by='prevailing_wage',ascending=False)
+
+plt.subplots(figsize=(14,7))
+sns.boxplot(y="continent",x = "prevailing_wage", data=df,palette='bright')
+plt.title("continent vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.xlabel("Prevailing Wage", weight="bold", fontsize=16)
+plt.ylabel("continent", weight="bold", fontsize=12)
+plt.show()
+
+plt.subplots(figsize=(14,7))
+sns.histplot(x = "yr_of_estab", data=df,palette='gnuplot', bins=40, hue='case_status')
+plt.title("yr_of_estab vs Visa Status", weight="bold",fontsize=20, pad=20)
+plt.xlabel("yr_of_estab", weight="bold", fontsize=16)
+plt.ylabel("Prevailing Wage", weight="bold", fontsize=12)
+plt.show()
+
+Report
+
+    Each bins consists of 5 years.
+    Many companies were established after year 2000.
+    The most company establishment happened in year 2000-2005.
+
+Report
+
+    Each bins consists of 5 years.
+    Many companies were established after year 2000.
+    The most company establishment happened in year 2000-2005.
+
+
